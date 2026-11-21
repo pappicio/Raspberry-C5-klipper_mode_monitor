@@ -70,7 +70,7 @@ The API Server installer asks for the Radxa IPv4 address and saves it in:
 
     /usr/data/opencreator/api-server.json
 
-The configuration contains the `radxa_host` value.
+The configuration contains the `remote_host` value.
 
 The API Server listens on port `8765`.
 
@@ -198,7 +198,7 @@ The installer stores the Radxa address in:
 
 The expected configuration key is:
 
-    radxa_host
+    remote_host
 
 ### Step 2 — Install the Radxa monitor
 
@@ -309,7 +309,7 @@ Relevant endpoints:
 
 Base address:
 
-    http://RADXA_IP:8765
+    http://REMOTE_IP:8765
 
 Endpoints:
 
@@ -339,7 +339,7 @@ The Creator 5 API Server has its own configuration file:
 
 It stores the Radxa address using:
 
-    radxa_host
+    remote_host
 
 These are separate configuration files on separate devices.
 
