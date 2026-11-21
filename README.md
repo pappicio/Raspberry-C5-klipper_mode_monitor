@@ -228,15 +228,83 @@ The expected configuration key is:
 ### Step 2 — Install the Radxa monitor
 
 
-## Install with one command from shell
 
+## Installation
 
-### git clone --depth 1 https://github.com/pappicio/Raspberry-C5-klipper_mode_monitor.git /tmp/klipper-mode-monitor && bash /tmp/klipper-mode-monitor/install.sh
+### Install with one command from shell
 
-On the Radxa, run the installer as the regular Linux user:
+Run the following command on the Raspberry Pi / Radxa using your regular Linux user (do not run as root):
 
-    chmod +x install.sh
-    ./install.sh
+```bash
+bash -c 'tmpdir=$(mktemp -d) || exit 1; trap '\''rm -rf "$tmpdir"'\'' EXIT; git clone --depth 1 https://github.com/pappicio/Raspberry-C5-klipper_mode_monitor.git "$tmpdir/monitor" && bash "$tmpdir/monitor/install.sh"'
+```
+
+The installer automatically:
+
+- Downloads the latest version from GitHub.
+- Requests the Creator 5 IP address.
+- Installs or updates the monitor script.
+- Updates the systemd service.
+- Configures the Mainsail SoC Mode navigation entry.
+- Installs the `SOC_MODE` Klipper macro.
+- Restarts the monitor service.
+- Restarts Klipper and verifies that it becomes ready.
+
+The same command can be used for both a fresh installation and an existing installation. Existing configuration is updated with the selected Creator 5 IP address.
+
+### Updating the monitor
+
+To update an existing installation, run the same one-command installation procedure above.
+
+The installer copies the latest `klipper_mode_monitor.py` into the installation directory and restarts the systemd service. No manual service removal or reinstallation is required.
+
+## Firmware Calibration Synchronization
+
+The monitor supports synchronization of firmware calibration files between the Creator 5 and the remote Klipper host.
+
+The files are stored on the Radxa in:
+
+```text
+~/printer_data/config/firmwareRes/
+```
+
+The synchronized files are:
+
+- `extruder.json`
+- `zoffset.json`
+
+The following file is intentionally excluded:
+
+- `test.json`
+
+### API Endpoints
+
+The monitor exposes two endpoints for the Creator 5 API Server:
+
+```text
+GET  /api/firmware_res
+POST /api/firmware_res
+```
+
+- `GET` provides the current calibration files to the Creator 5.
+- `POST` receives updated calibration files from the Creator 5.
+
+### Synchronization Logic
+
+The Creator 5 API Server coordinates synchronization before every SoC / Tunneled mode transition.
+
+For each calibration file:
+
+- If the file exists on only one device, it is copied to the other.
+- If both devices have the file, the version with the newest modification timestamp takes precedence.
+- If timestamps and contents are identical, no transfer is performed.
+- If timestamps are identical but contents differ, a conflict is reported and neither file is overwritten.
+- Original modification timestamps are preserved during transfer.
+- File replacement is performed atomically.
+
+The Creator 5 decides which version must be transferred. The Radxa monitor provides the remote files and applies incoming updates.
+
+Calibration synchronization must be explicitly enabled in the Creator 5 API Server configuration.
 
 The installer asks only for the Creator 5 IP address.
 
