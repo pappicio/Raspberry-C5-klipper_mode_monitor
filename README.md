@@ -4,7 +4,41 @@ A companion component for the FlashForge Creator 5 and a Radxa ZERO 3W running K
 
 This project is designed to work together with the **OpenCreator API Server** plugin installed on the Creator 5.
 
-The two components are complementary and must both be installed. The Radxa monitor alone cannot provide the complete functionality, and the Creator 5 API Server alone cannot provide the Radxa-side monitoring and synchronization services.
+The two components are complementary and must both be installed. The Radxa monitor alone cannot provide the complete functionality, and the Creator 5 API Server alone cannot provide the Radxa (Raspberry PI)-side monitoring and synchronization services.
+
+
+
+
+## Companion Project — OpenCreator API Server
+
+Raspberry-C5-klipper_mode_monitor is designed to work together with the **OpenCreator API Server** plugin installed on the FlashForge Creator 5.
+
+Repository:
+
+https://github.com/pappicio/api-server
+
+Both components are complementary and required for the complete integration.
+
+### How the two components work together
+
+- **Mode Monitor (Raspberry Pi / Remote Host):** Runs alongside Klipper, monitors the remote system, provides HTTP endpoints, stores synchronization data, and reports SoC temperature.
+- **API Server (Creator 5):** Provides the printer-side API, handles switching between SoC and Tunneled modes, coordinates data synchronization, and manages the transition between the two systems.
+
+Before switching modes, the API Server coordinates the synchronization of toolchange counters and nozzle usage data between the Creator 5 and the remote host.
+
+### Installation requirements
+
+1. Install **Mode Monitor** on the Raspberry Pi or compatible Linux host running Klipper.
+2. Install **Script Runner** on the Creator 5.
+3. Install **OpenCreator API Server** on the Creator 5.
+4. Configure the IP addresses of both devices.
+
+Installing only one component does not provide the complete functionality.
+
+
+
+
+
 
 ## Project components
 
