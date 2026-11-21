@@ -756,5 +756,183 @@ def main():
         http_server.server_close()
 
 
+
+
+# ============================================================
+# FIRMWARE RES API EXTENSION
+# ============================================================
+
+class FirmwareResHandler(ToolchangesHandler):
+
+    FIRMWARE_RES_PATH = "/api/firmware_res"
+    FIRMWARE_RES_DIR = os.path.join(
+        os.path.expanduser("~"),
+        "printer_data/config/firmwareRes"
+    )
+    FIRMWARE_RES_FILES = ("extruder.json", "zoffset.json")
+    MAX_FIRMWARE_RES_SIZE = 1024 * 1024
+
+    def do_GET(self):
+
+        if urlparse(self.path).path != self.FIRMWARE_RES_PATH:
+            return super().do_GET()
+
+        if not self.check_access():
+            return
+
+        import base64
+
+        try:
+            files = {}
+
+            for filename in self.FIRMWARE_RES_FILES:
+                filepath = os.path.join(self.FIRMWARE_RES_DIR, filename)
+
+                if not os.path.isfile(filepath):
+                    files[filename] = {"exists": False}
+                    continue
+
+                info = os.stat(filepath)
+
+                if info.st_size > self.MAX_FIRMWARE_RES_SIZE:
+                    raise ValueError("%s exceeds size limit" % filename)
+
+                with open(filepath, "rb") as file:
+                    content = file.read(self.MAX_FIRMWARE_RES_SIZE + 1)
+
+                if len(content) > self.MAX_FIRMWARE_RES_SIZE:
+                    raise ValueError("%s exceeds size limit" % filename)
+
+                files[filename] = {
+                    "exists": True,
+                    "mtime_ns": info.st_mtime_ns,
+                    "data": base64.b64encode(content).decode("ascii")
+                }
+
+            self.send_json(200, {
+                "success": True,
+                "files": files
+            })
+
+            log("Firmware calibration files sent to Creator")
+
+        except Exception as exc:
+            log("Error reading firmware calibration files: %s" % exc)
+            self.send_json(500, {
+                "success": False,
+                "error": str(exc)
+            })
+
+    def do_POST(self):
+
+        if urlparse(self.path).path != self.FIRMWARE_RES_PATH:
+            return super().do_POST()
+
+        if not self.check_access():
+            return
+
+        import base64
+
+        temp_path = None
+
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+
+            if length <= 0 or length > 2 * 1024 * 1024:
+                raise ValueError("Invalid request size")
+
+            raw = self.rfile.read(length)
+
+            if len(raw) != length:
+                raise ValueError("Incomplete transfer")
+
+            payload = json.loads(raw.decode("utf-8"))
+
+            filename = payload.get("filename")
+            if filename not in self.FIRMWARE_RES_FILES:
+                raise ValueError("Invalid calibration filename")
+
+            mtime_ns = payload.get("mtime_ns")
+            if type(mtime_ns) is not int or mtime_ns < 0:
+                raise ValueError("Invalid mtime_ns")
+
+            content = base64.b64decode(
+                payload.get("data", ""),
+                validate=True
+            )
+
+            if len(content) > self.MAX_FIRMWARE_RES_SIZE:
+                raise ValueError("Calibration file exceeds size limit")
+
+            os.makedirs(self.FIRMWARE_RES_DIR, exist_ok=True)
+
+            destination = os.path.join(
+                self.FIRMWARE_RES_DIR,
+                filename
+            )
+
+            old_info = (
+                os.stat(destination)
+                if os.path.isfile(destination)
+                else None
+            )
+
+            fd, temp_path = tempfile.mkstemp(
+                prefix=".%s." % filename,
+                suffix=".tmp",
+                dir=self.FIRMWARE_RES_DIR
+            )
+
+            mode = stat.S_IMODE(old_info.st_mode) if old_info else 0o664
+            os.fchmod(fd, mode)
+
+            with os.fdopen(fd, "wb") as file:
+                file.write(content)
+                file.flush()
+                os.fsync(file.fileno())
+
+            if old_info and os.geteuid() == 0:
+                os.chown(temp_path, old_info.st_uid, old_info.st_gid)
+
+            atime_ns = old_info.st_atime_ns if old_info else mtime_ns
+            os.utime(temp_path, ns=(atime_ns, mtime_ns))
+
+            os.replace(temp_path, destination)
+            temp_path = None
+
+            dir_fd = os.open(self.FIRMWARE_RES_DIR, os.O_RDONLY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+
+            log(
+                "Firmware calibration file received: %s (%d bytes)" %
+                (filename, len(content))
+            )
+
+            self.send_json(200, {
+                "success": True,
+                "filename": filename,
+                "mtime_ns": mtime_ns,
+                "size": len(content)
+            })
+
+        except Exception as exc:
+            log("Error saving firmware calibration file: %s" % exc)
+            self.send_json(400, {
+                "success": False,
+                "error": str(exc)
+            })
+
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                os.unlink(temp_path)
+
+
+# Extend the existing server without changing its original handlers.
+ToolchangesHandler = FirmwareResHandler
+
+
 if __name__ == "__main__":
     main()
