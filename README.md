@@ -8,6 +8,31 @@ The two components are complementary and must both be installed. The Radxa monit
 
 
 
+# Prerequisites — OpenCreator Tunnel
+
+Important: Install OpenCreator Tunnel before installing Mode Monitor.
+
+Repository:
+https://github.com/FlashForge-C5-Modding-Group/opencreator-tunnel
+
+OpenCreator Tunnel provides the Klipper/Moonraker environment and connectivity required by the Creator 5 integration on the Raspberry Pi.
+
+Mode Monitor depends on this environment to access the remote Klipper and Moonraker services. Without OpenCreator Tunnel properly installed and configured, Mode Monitor and the Creator 5 synchronization features will not work.
+
+Required installation order
+
+OpenCreator Tunnel — Install and configure it on the Raspberry Pi first.
+
+Mode Monitor — Install it on the Raspberry Pi after OpenCreator Tunnel is working.
+
+Script Runner — Install it on the Creator 5.
+
+API Server — Install it on the Creator 5 and configure the Raspberry Pi IP address.
+
+All components must be installed and operational for the complete SoC / Tunneled mode switching integration.
+
+
+
 
 ## Companion Project — OpenCreator API Server
 
