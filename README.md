@@ -227,6 +227,10 @@ The expected configuration key is:
 
 ### Step 2 — Install the Radxa monitor
 
+
+## Install with one command from shell
+### git clone --depth 1 https://github.com/pappicio/Raspberry-C5-klipper_mode_monitor.git /tmp/klipper-mode-monitor && bash /tmp/klipper-mode-monitor/install.sh
+
 On the Radxa, run the installer as the regular Linux user:
 
     chmod +x install.sh
