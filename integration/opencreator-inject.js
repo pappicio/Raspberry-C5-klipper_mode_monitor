@@ -5,7 +5,13 @@
     const ROOT_ID = 'opencreator-integration';
 
     function initialize() {
-        if (document.getElementById(ROOT_ID)) return true;
+        const existingRoot = document.getElementById(ROOT_ID);
+        const existingHost = document.getElementById('opencreator-frame-host');
+
+        if (existingRoot && existingHost) return true;
+
+        existingRoot?.remove();
+        existingHost?.remove();
 
         let toolbar;
         let main;
@@ -29,7 +35,9 @@
         const root = document.createElement('div');
         root.id = ROOT_ID;
 
-        const style = document.createElement('style');
+        const style = document.getElementById(`${ROOT_ID}-style`)
+            || document.createElement('style');
+        style.id = `${ROOT_ID}-style`;
         style.textContent = `
             #${ROOT_ID} {
                 display: inline-flex;
@@ -111,14 +119,17 @@
         return true;
     }
 
-    if (!initialize()) {
-        const observer = new MutationObserver(() => {
-            if (initialize()) observer.disconnect();
-        });
+    initialize();
 
-        observer.observe(document.documentElement, {
-            childList: true,
-            subtree: true
-        });
-    }
+    const observer = new MutationObserver(() => {
+        const root = document.getElementById(ROOT_ID);
+        const host = document.getElementById('opencreator-frame-host');
+
+        if (!root || !host) initialize();
+    });
+
+    observer.observe(document.documentElement, {
+        childList: true,
+        subtree: true
+    });
 })();
