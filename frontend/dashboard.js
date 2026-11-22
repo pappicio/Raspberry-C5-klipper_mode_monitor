@@ -193,7 +193,7 @@
         goSoc.disabled = data.soc.mode !== "tunneled";
         goSoc.addEventListener("click", () => {
             if (window.confirm("Switch the Creator 5 to SoC mode?")) {
-                window.open("/api/go-soc", "_blank", "noopener");
+                window.top.location.href = "/api/go-soc";
             }
         });
         actions.appendChild(goSoc);
