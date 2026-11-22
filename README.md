@@ -227,6 +227,9 @@ Run the installer as the regular Linux user from the project directory:
 
     chmod +x install.sh
     ./install.sh
+or one command:
+
+cd ~ && git clone https://github.com/pappicio/Raspberry-C5-klipper_mode_monitor.git klipper_mode_monitor && cd ~/klipper_mode_monitor && bash install.sh
 
 The installer:
 
