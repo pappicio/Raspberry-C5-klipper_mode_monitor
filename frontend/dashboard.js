@@ -22,8 +22,9 @@
         return block;
     };
 
-    const row = (parent, label, value, state) => {
+    const row = (parent, label, value, state, extraClass) => {
         const line = el("div", "oc-row");
+        if (extraClass) line.classList.add(extraClass);
         line.appendChild(el("span", "oc-label", label));
         const result = el("span", "oc-value", value);
         if (state) result.classList.add("oc-" + state);
@@ -187,16 +188,15 @@
         const controls = section(parent, "Controls");
         const actions = el("div", "oc-control-actions");
 
-        if (data.soc.mode === "tunneled") {
-            const goSoc = el("button", "oc-control-button", "Go SoC");
-            goSoc.type = "button";
-            goSoc.addEventListener("click", () => {
-                if (window.confirm("Switch the Creator 5 to SoC mode?")) {
-                    window.open("/api/go-soc", "_blank", "noopener");
-                }
-            });
-            actions.appendChild(goSoc);
-        }
+        const goSoc = el("button", "oc-control-button", "Go SoC");
+        goSoc.type = "button";
+        goSoc.disabled = data.soc.mode !== "tunneled";
+        goSoc.addEventListener("click", () => {
+            if (window.confirm("Switch the Creator 5 to SoC mode?")) {
+                window.open("/api/go-soc", "_blank", "noopener");
+            }
+        });
+        actions.appendChild(goSoc);
 
         const currentScreen = String(data.creator.screen || "").toLowerCase();
 
@@ -417,11 +417,11 @@
                 const key = keys[i];
                 if (validA) {
                     row(card, `T${i} · External Host`,
-                        `${(a[key] / 3600).toFixed(2)} h`);
+                        `${(a[key] / 3600).toFixed(2)} h`, null, "oc-nozzle-hours-row");
                 }
                 if (validB) {
                     row(card, `T${i} · Creator 5`,
-                        `${(b[key] / 3600).toFixed(2)} h`);
+                        `${(b[key] / 3600).toFixed(2)} h`, null, "oc-nozzle-hours-row");
                 }
             }
 
