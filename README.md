@@ -1,126 +1,113 @@
 # Raspberry-C5-klipper_mode_monitor
 
-A companion component for the FlashForge Creator 5 and a Radxa ZERO 3W running Klipper.
+Unified monitoring and dashboard companion for the FlashForge Creator 5 and a Radxa ZERO 3W running Klipper.
 
-This project is designed to work together with the **OpenCreator API Server** plugin installed on the Creator 5.
+The project combines the Radxa-side Klipper mode monitor and OpenCreator Dashboard in one application, one project directory, one systemd service and one HTTP server.
 
-The two components are complementary and must both be installed. The Radxa monitor alone cannot provide the complete functionality, and the Creator 5 API Server alone cannot provide the Radxa (Raspberry PI)-side monitoring and synchronization services.
+The Creator 5 communicates with this project through the separate OpenCreator API Server plugin.
 
+## Architecture
 
-
-# Prerequisites — OpenCreator Tunnel
-
-Important: Install OpenCreator Tunnel before installing Mode Monitor.
-
-Repository:
-https://github.com/FlashForge-C5-Modding-Group/opencreator-tunnel
-
-OpenCreator Tunnel provides the Klipper/Moonraker environment and connectivity required by the Creator 5 integration on the Raspberry Pi.
-
-Mode Monitor depends on this environment to access the remote Klipper and Moonraker services. Without OpenCreator Tunnel properly installed and configured, Mode Monitor and the Creator 5 synchronization features will not work.
-
-Required installation order
-
-OpenCreator Tunnel — Install and configure it on the Raspberry Pi first.
-
-Mode Monitor — Install it on the Raspberry Pi after OpenCreator Tunnel is working.
-
-Script Runner — Install it on the Creator 5.
-
-API Server — Install it on the Creator 5 and configure the Raspberry Pi IP address.
-
-All components must be installed and operational for the complete SoC / Tunneled mode switching integration.
-
-
-
-
-## Companion Project — OpenCreator API Server
-
-Raspberry-C5-klipper_mode_monitor is designed to work together with the **OpenCreator API Server** plugin installed on the FlashForge Creator 5.
+### Creator 5 — OpenCreator API Server
 
 Repository:
 
 https://github.com/pappicio/api-server
 
-Both components are complementary and required for the complete integration.
-
-### How the two components work together
-
-- **Mode Monitor (Raspberry Pi / Remote Host):** Runs alongside Klipper, monitors the remote system, provides HTTP endpoints, stores synchronization data, and reports SoC temperature.
-- **API Server (Creator 5):** Provides the printer-side API, handles switching between SoC and Tunneled modes, coordinates data synchronization, and manages the transition between the two systems.
-
-Before switching modes, the API Server coordinates the synchronization of toolchange counters and nozzle usage data between the Creator 5 and the remote host.
-
-### Installation requirements
-
-1. Install **Mode Monitor** on the Raspberry Pi or compatible Linux host running Klipper.
-2. Install **Script Runner** on the Creator 5.
-3. Install **OpenCreator API Server** on the Creator 5.
-4. Configure the IP addresses of both devices.
-
-Installing only one component does not provide the complete functionality.
-
-
-
-
-
-
-## Project components
-
-### 1. Creator 5 — OpenCreator API Server
-
-Repository:
-
-https://github.com/pappicio/api-server
-
-The API Server plugin runs on the Creator 5 and provides the communication interface between the printer and the Radxa.
+The API Server runs on the Creator 5 and provides the printer-side communication interface.
 
 It handles:
 
 - Creator 5 printer mode detection.
 - Switching between SoC and Tunneled modes.
-- Communication with the Radxa monitor.
+- Communication with the Radxa.
 - Toolchange counter synchronization.
 - Nozzle usage-time synchronization.
 - Radxa SoC temperature reception.
 - Mode-switch wait page and automatic redirection after reboot.
 
-**Requirements:**
+Requirements:
 
 - OpenCreator plugin environment.
-- Script Runner plugin installed and working.
-- Correct Radxa IP address configured during API Server installation.
+- Script Runner installed and working.
+- Correct Radxa IP address configured in the API Server.
 
-The API Server installer asks for the Radxa IPv4 address and saves it in:
+The API Server stores its configuration in:
 
     /usr/data/opencreator/api-server.json
 
-The configuration contains the `remote_host` value.
+The configuration key for the Radxa address is:
 
-The API Server listens on port `8765`.
+    radxa_host
 
-### 2. Radxa ZERO 3W — Raspberry-C5-klipper_mode_monitor
+The Creator 5 API Server listens on port `8765`.
 
-This project runs on the Radxa alongside Klipper.
+### Radxa ZERO 3W — Unified application
 
-It provides:
+The Radxa project runs alongside Klipper and Moonraker.
 
-- HTTP endpoints used by the Creator 5 API Server.
+It combines:
+
+- Klipper mode monitoring.
+- HTTP endpoints for the Creator 5.
 - Toolchange counter storage and synchronization.
 - Nozzle usage-time storage and synchronization.
-- Creator 5 mode monitoring.
-- SoC temperature transmission to the Creator 5.
-- Klipper restart handling when switching to Tunneled mode.
+- Firmware calibration data synchronization.
+- SoC temperature transmission.
+- OpenCreator Dashboard.
+- Custom project information.
+- Printer screen switching controls.
 
-The monitor listens on:
+The application uses:
+
+    One project directory
+    One Python process
+    One systemd service
+    One HTTP port: 8765
+
+The HTTP server listens on:
 
     0.0.0.0:8765
 
-The Creator 5 API Server and the Radxa monitor both use port `8765`, but they run on different devices.
+The Creator 5 and Radxa use the same port number on different devices.
+
+## Project structure
+
+    klipper_mode_monitor/
+    ├── backend/
+    │   ├── custom_projects.py
+    │   └── dashboard_server.py
+    ├── frontend/
+    │   ├── index.html
+    │   ├── dashboard.js
+    │   └── dashboard.css
+    ├── integration/
+    │   └── opencreator-inject.js
+    ├── config.json
+    ├── install.sh
+    ├── uninstall.sh
+    ├── klipper_mode_monitor.py
+    └── README.md
+
+The installer and application use the project directory dynamically.
+
+## Dashboard integration
+
+The Dashboard is integrated into the existing Mainsail and Fluidd pages through:
+
+    integration/opencreator-inject.js
+
+The integration script adds the OpenCreator interface to the existing printer UI.
+
+Its Dashboard address is derived dynamically from the current browser protocol and hostname, using port `8765`.
+
+No additional Dashboard port is required.
+
+The integration uses the existing Mainsail and Fluidd web-server injection configuration. The project installer does not modify Nginx, Mainsail, Fluidd or Moonraker configuration files.
+
+The Dashboard is served by the same HTTP server as the Klipper mode monitor.
 
 ## Communication and synchronization
-
-Both components must be installed and configured with the correct IP addresses.
 
 The communication flow is:
 
@@ -130,17 +117,25 @@ The communication flow is:
            |
     Radxa ZERO 3W
            |
-           | HTTP API :8765
+           | Unified HTTP server :8765
            |
-    Klipper data files
+    ┌──────────────────────────────┐
+    │ Klipper Mode Monitor         │
+    │ OpenCreator Dashboard        │
+    │ Synchronization API          │
+    └──────────────────────────────┘
+           |
+           | Local data files
+           |
+    Klipper configuration directory
 
 ### Toolchange counters
 
-The following file is synchronized between the two devices:
+The synchronized file is:
 
-    toolchanges.txt
+    ~/printer_data/config/toolchanges.txt
 
-It contains the counters for:
+It stores the counters for:
 
 - Total
 - T0
@@ -150,9 +145,9 @@ It contains the counters for:
 
 ### Nozzle usage time
 
-The following file is synchronized:
+The synchronized file is:
 
-    c5_misc_variables.cfg
+    ~/printer_data/config/c5_misc_variables.cfg
 
 The synchronized variables are:
 
@@ -170,9 +165,18 @@ Synchronization takes place before the mode switch and reboot.
 | SoC | Radxa → Creator 5 |
 | Tunneled | Creator 5 → Radxa |
 
-The API Server validates the received data before updating the destination files.
+The Creator 5 API Server validates received data before updating destination files.
 
-The existing files are backed up before being modified.
+Existing data files are backed up before modification.
+
+### Firmware calibration
+
+The Radxa exposes firmware calibration data through:
+
+    GET /api/firmware_res
+    POST /api/firmware_res
+
+The Creator 5 API Server uses these endpoints to synchronize calibration files.
 
 ### Temperature
 
@@ -202,284 +206,188 @@ Both devices must be reachable over the network.
 
 ## Installation
 
-Installation requires two separate steps.
+### Creator 5
 
-### Step 1 — Install the Creator 5 API Server
+Install and configure the OpenCreator API Server separately:
 
-On the Creator 5:
+https://github.com/pappicio/api-server
 
-1. Install and enable Script Runner.
-2. Install the OpenCreator API Server plugin:
+Verify that:
 
-   https://github.com/pappicio/api-server
+- Script Runner is installed and working.
+- The API Server is installed and enabled.
+- Its `radxa_host` configuration contains the correct Radxa IPv4 address.
+- The API Server is listening on port `8765`.
 
-3. Run the API Server installer.
-4. When requested, enter the Radxa IPv4 address.
-5. Verify that the API Server starts successfully.
+The Creator 5 API Server remains a separate component.
 
-The installer stores the Radxa address in:
+### Radxa
 
-    /usr/data/opencreator/api-server.json
+Run the installer as the regular Linux user from the project directory:
 
-The expected configuration key is:
+    chmod +x install.sh
+    ./install.sh
 
-    remote_host
+The installer:
 
-### Step 2 — Install the Radxa monitor
+1. Validates the existing `config.json`.
+2. Checks Python syntax.
+3. Checks the required sudo permissions.
+4. Creates a restricted Klipper restart permission only when required.
+5. Creates the systemd service definition.
+6. Enables and starts the unified application.
 
+The installer does not:
 
+- Install Python packages or other dependencies.
+- Modify Klipper configuration files.
+- Modify Moonraker configuration.
+- Create Klipper macros.
+- Modify Mainsail or Fluidd navigation.
+- Modify Nginx configuration.
+- Restart Klipper.
+- Overwrite the existing application configuration.
 
-## Installation
+## Configuration
 
-### Install with one command from shell
-
-Run the following command on the Raspberry Pi / Radxa using your regular Linux user (do not run as root):
-
-```bash
-bash -c 'tmpdir=$(mktemp -d) || exit 1; trap '\''rm -rf "$tmpdir"'\'' EXIT; git clone --depth 1 https://github.com/pappicio/Raspberry-C5-klipper_mode_monitor.git "$tmpdir/monitor" && bash "$tmpdir/monitor/install.sh"'
-```
-
-The installer automatically:
-
-- Downloads the latest version from GitHub.
-- Requests the Creator 5 IP address.
-- Installs or updates the monitor script.
-- Updates the systemd service.
-- Configures the Mainsail SoC Mode navigation entry.
-- Installs the `SOC_MODE` Klipper macro.
-- Restarts the monitor service.
-- Restarts Klipper and verifies that it becomes ready.
-
-The same command can be used for both a fresh installation and an existing installation. Existing configuration is updated with the selected Creator 5 IP address.
-
-### Updating the monitor
-
-To update an existing installation, run the same one-command installation procedure above.
-
-The installer copies the latest `klipper_mode_monitor.py` into the installation directory and restarts the systemd service. No manual service removal or reinstallation is required.
-
-## Firmware Calibration Synchronization
-
-The monitor supports synchronization of firmware calibration files between the Creator 5 and the remote Klipper host.
-
-The files are stored on the Radxa in:
-
-```text
-~/printer_data/config/firmwareRes/
-```
-
-The synchronized files are:
-
-- `extruder.json`
-- `zoffset.json`
-
-The following file is intentionally excluded:
-
-- `test.json`
-
-### API Endpoints
-
-The monitor exposes two endpoints for the Creator 5 API Server:
-
-```text
-GET  /api/firmware_res
-POST /api/firmware_res
-```
-
-- `GET` provides the current calibration files to the Creator 5.
-- `POST` receives updated calibration files from the Creator 5.
-
-### Synchronization Logic
-
-The Creator 5 API Server coordinates synchronization before every SoC / Tunneled mode transition.
-
-For each calibration file:
-
-- If the file exists on only one device, it is copied to the other.
-- If both devices have the file, the version with the newest modification timestamp takes precedence.
-- If timestamps and contents are identical, no transfer is performed.
-- If timestamps are identical but contents differ, a conflict is reported and neither file is overwritten.
-- Original modification timestamps are preserved during transfer.
-- File replacement is performed atomically.
-
-The Creator 5 decides which version must be transferred. The Radxa monitor provides the remote files and applies incoming updates.
-
-Calibration synchronization must be explicitly enabled in the Creator 5 API Server configuration.
-
-The installer asks only for the Creator 5 IP address.
-
-Default address:
-
-    192.168.1.194
-
-The following settings are fixed:
-
-- Creator API port: `8765`
-- Monitor HTTP port: `8765`
-- HTTP bind address: `0.0.0.0`
-
-The installer creates:
+The Radxa configuration file is:
 
     config.json
 
-With this structure:
+Example:
 
     {
         "creator_ip": "192.168.1.194"
     }
 
-It automatically installs and enables:
+The installer validates the existing configuration and preserves its contents.
 
-    klipper-mode-monitor.service
+The Creator 5 API Server has its own configuration:
 
-The service runs under the Linux user who launches the installer.
+    /usr/data/opencreator/api-server.json
 
-## Moonraker navigation menu
+It stores the Radxa address using:
 
-Both devices can have an additional navigation entry to switch between SoC and Tunneled modes.
+    radxa_host
 
-The buttons call the Creator 5 API Server directly.
+These configuration files belong to separate devices and applications.
 
-Replace `CREATOR_IP` with the actual Creator 5 IP address.
+## HTTP endpoints
 
-Merge each entry into the existing navigation JSON array. Do not overwrite the entire file.
-
-### Creator 5 — Switch to Tunneled
-
-File:
-
-    /usr/data/opencreator/klipper/config/.theme/navi.json
-
-Add this entry:
-
-    {
-        "title": "Tunneled",
-        "href": "http://CREATOR_IP:8765/go_tunneled",
-        "target": "_self",
-        "position": 90
-    }
-
-This button requests the switch to Tunneled mode.
-
-### Radxa — Switch to SoC
-
-File:
-
-    ~/printer_data/config/.theme/navi.json
-
-Add this entry:
-
-    {
-        "title": "SoC Mode",
-        "href": "http://CREATOR_IP:8765/go_soc",
-        "target": "_self",
-        "position": 90
-    }
-
-This button requests the switch back to SoC mode.
-
-### Mode-switch endpoints
-
-The following endpoints belong to the Creator 5 API Server:
-
-- `GET /go_tunneled`
-- `GET /go_soc`
-
-The API Server performs the required synchronization before changing mode and rebooting the printer.
-
-It also provides a wait page that checks when the destination system becomes available and redirects the browser automatically.
-
-## API endpoints
-
-### Creator 5 API Server
+### Radxa — Monitor
 
 Base address:
 
-    http://CREATOR_IP:8765
+    http://RADXA_IP:8765
 
-Relevant endpoints:
-
-- `GET /api/status`
-- `POST /api/pitemp/`
-- `GET /go_tunneled`
-- `GET /go_soc`
-
-### Radxa monitor
-
-Base address:
-
-    http://REMOTE_IP:8765
-
-Endpoints:
+Endpoints include:
 
 - `GET /status`
 - `GET /api/toolchanges`
 - `POST /api/toolchanges`
 - `GET /api/nozzle_hours`
 - `POST /api/nozzle_hours`
+- `GET /api/firmware_res`
+- `POST /api/firmware_res`
 
-The Radxa monitor does not provide the mode-switch endpoints. Those belong to the Creator 5 API Server.
+### Radxa — Dashboard
 
-## Configuration
+The Dashboard is served by the same HTTP server.
 
-The Radxa monitor configuration is stored in:
+Frontend:
 
-    config.json
+- `GET /`
+- `GET /index.html`
+- `GET /dashboard.js`
+- `GET /dashboard.css`
 
-Only the Creator 5 IP address is required:
+Dashboard API:
 
-    {
-        "creator_ip": "192.168.1.194"
-    }
+- `GET /api/dashboard`
+- `GET /api/custom-projects`
+- `GET /api/synchronization`
+- `GET /api/go-soc`
+- `POST /api/synchronization/<item>`
+- `POST /api/screen/grumpy`
+- `POST /api/screen/helix`
 
-The Creator 5 API Server has its own configuration file:
+### Creator 5 — API Server
 
-    /usr/data/opencreator/api-server.json
+Base address:
 
-It stores the Radxa address using:
+    http://CREATOR_IP:8765
 
-    remote_host
+Relevant endpoints include:
 
-These are separate configuration files on separate devices.
+- `GET /api/status`
+- `POST /api/pitemp/`
+- `GET /go_tunneled`
+- `GET /go_soc`
+
+Mode-switch endpoints belong to the Creator 5 API Server.
+
+The API Server performs the required synchronization before changing mode and rebooting the printer.
+
+## Network access
+
+The Radxa HTTP server listens on all IPv4 interfaces.
+
+Access is restricted to:
+
+- Localhost.
+- The configured Creator 5 IP address.
+- Networks detected from the Radxa default-route interface.
+
+The application detects the LAN network automatically at startup.
 
 ## Service management
 
-Check service status:
+Service name:
 
-    sudo systemctl status klipper-mode-monitor
+    klipper-mode-monitor.service
+
+Check status:
+
+    sudo systemctl status klipper-mode-monitor.service
 
 Follow logs:
 
-    sudo journalctl -u klipper-mode-monitor -f
+    sudo journalctl -u klipper-mode-monitor.service -f
 
-Restart:
+Restart the unified application:
 
-    sudo systemctl restart klipper-mode-monitor
+    sudo systemctl restart klipper-mode-monitor.service
 
 Stop:
 
-    sudo systemctl stop klipper-mode-monitor
+    sudo systemctl stop klipper-mode-monitor.service
+
+The monitor and Dashboard run in the same process. Restarting the service restarts both components.
 
 ## Klipper restart permissions
 
-The monitor runs as the Linux user who launches the installer.
+The application runs as the regular Linux user who installs it.
 
-That user must be allowed to execute the following command without password interaction:
+When required, the installer configures this restricted passwordless command:
 
-    sudo -n /usr/bin/systemctl restart klipper.service
+    /usr/bin/systemctl restart klipper.service
 
-The installer checks the available sudo permissions and configures a restricted rule when necessary.
+The permission is used by the existing monitor functionality when a Klipper restart is required.
 
-## Data files
+The installer does not restart Klipper during installation.
 
-The monitor uses the following Klipper configuration files:
+## Data preservation
+
+The application uses existing Klipper data files, including:
 
     ~/printer_data/config/toolchanges.txt
     ~/printer_data/config/c5_misc_variables.cfg
 
 These files contain persistent printer data.
 
-Uninstallation does not delete or remove these files.
+The installer does not overwrite them.
+
+Uninstallation does not delete these files.
 
 ## Uninstallation
 
@@ -487,47 +395,21 @@ Run the uninstaller as the regular installation user:
 
     ./uninstall.sh
 
-Type:
+Confirm by typing:
 
     REMOVE
 
 The uninstaller:
 
-- Stops and disables the systemd service.
-- Removes the systemd service definition.
-- Removes the installer-managed sudoers rule, if applicable.
+- Stops and disables the unified systemd service.
+- Removes the project systemd service definition.
+- Removes the installer-managed sudoers rule when it can be verified.
 - Preserves application files.
-- Preserves all Klipper data files.
+- Preserves `config.json`.
+- Preserves Klipper configuration and data files.
 
 ## Important
 
-**Raspberry-C5-klipper_mode_monitor and OpenCreator API Server are designed to work together.**
+The Radxa unified application and the Creator 5 OpenCreator API Server are complementary components.
 
-Both components are required for the complete Creator 5 / Radxa integration, including mode switching, toolchange synchronization and nozzle usage-time synchronization.
-
-
-## Mainsail and Fluidd navigation
-
-The installer automatically adds a **SoC Mode** entry to the Mainsail
-sidebar through `printer_data/config/.theme/navi.json`. Selecting it
-calls the Creator 5 API Server `/go_soc` endpoint.
-
-Fluidd 1.37.7 does not support custom sidebar navigation entries.
-Adding a navigation object to the Moonraker database alone does not
-make the entry appear, so no Fluidd database modification is attempted.
-
-## SOC_MODE Klipper macro
-
-The installer creates `printer_data/config/oc_macros.cfg` if it does
-not exist and ensures that `printer.base.cfg` includes it.
-
-The file contains the `SOC_MODE` macro and its dedicated
-`gcode_shell_command`, configured with the Creator 5 IP address supplied
-during installation. The macro calls the Creator 5 API Server `/go_soc`
-endpoint.
-
-This provides a `SOC_MODE` command from the Klipper console in both
-Mainsail and Fluidd, independently of sidebar navigation.
-
-Existing contents of `oc_macros.cfg` are preserved. The installer
-does not overwrite an existing file.
+Both are required for the complete Creator 5 and Radxa integration, including mode switching, monitoring and data synchronization.

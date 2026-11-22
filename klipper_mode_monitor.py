@@ -931,7 +931,125 @@ class FirmwareResHandler(ToolchangesHandler):
 
 
 # Extend the existing server without changing its original handlers.
-ToolchangesHandler = FirmwareResHandler
+# OpenCreator Dashboard is served by the same HTTP server and port.
+
+import sys
+
+_BACKEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "backend")
+if _BACKEND_DIR not in sys.path:
+    sys.path.insert(0, _BACKEND_DIR)
+
+from dashboard_server import DashboardHandler
+
+
+def detect_lan_networks():
+    networks = []
+
+    try:
+        routes = subprocess.run(
+            ["ip", "-4", "route", "show", "default"],
+            capture_output=True, text=True, check=True, timeout=5
+        )
+
+        for route in routes.stdout.splitlines():
+            fields = route.split()
+            if "dev" not in fields:
+                continue
+
+            interface = fields[fields.index("dev") + 1]
+
+            addresses = subprocess.run(
+                ["ip", "-o", "-4", "addr", "show", "dev", interface, "scope", "global"],
+                capture_output=True, text=True, check=True, timeout=5
+            )
+
+            for line in addresses.stdout.splitlines():
+                fields = line.split()
+                if "inet" not in fields:
+                    continue
+
+                address = ipaddress.ip_interface(
+                    fields[fields.index("inet") + 1]
+                )
+                if not address.ip.is_loopback:
+                    networks.append(address.network)
+
+    except (OSError, subprocess.SubprocessError, ValueError, IndexError) as exc:
+        log("Unable to detect LAN network automatically: %s" % exc)
+
+    result = tuple(dict.fromkeys(networks))
+    log("Allowed LAN networks: %s" % (
+        ", ".join(str(network) for network in result) or "none"
+    ))
+    return result
+
+
+LAN_NETWORKS = detect_lan_networks()
+
+
+class OpenCreatorHandler(FirmwareResHandler):
+
+    def check_access(self):
+        try:
+            address = ipaddress.ip_address(self.client_address[0])
+            allowed = (
+                address.is_loopback
+                or address == ipaddress.ip_address(CREATOR_IP)
+                or any(address in network for network in LAN_NETWORKS)
+            )
+        except ValueError:
+            allowed = False
+
+        if not allowed:
+            self.send_json(403, {
+                "success": False,
+                "error": "Access denied"
+            })
+            return False
+
+        return True
+
+    def send_data(self, code, content, content_type):
+        body = content if isinstance(content, bytes) else content.encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self):
+        path = urlparse(self.path).path
+
+        dashboard_routes = {
+            "/", "/index.html", "/dashboard.js", "/dashboard.css",
+            "/api/go-soc", "/api/custom-projects",
+            "/api/synchronization", "/api/dashboard"
+        }
+
+        if path in dashboard_routes or path.startswith("/assets/"):
+            if not self.check_access():
+                return
+            return DashboardHandler.do_GET(self)
+
+        return super().do_GET()
+
+    def do_POST(self):
+        path = urlparse(self.path).path
+
+        if (
+            path.startswith("/api/synchronization/")
+            or path in ("/api/screen/grumpy", "/api/screen/helix")
+        ):
+            if not self.check_access():
+                return
+            return DashboardHandler.do_POST(self)
+
+        return super().do_POST()
+
+
+ToolchangesHandler = OpenCreatorHandler
 
 
 if __name__ == "__main__":
