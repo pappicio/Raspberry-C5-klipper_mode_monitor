@@ -308,10 +308,9 @@
     }
 
     function renderSyncButton(parent, item, status, mode) {
-        if (status !== "Different" || !mode) return;
-
         const button = el("button", "oc-sync-button", "Sync");
         button.type = "button";
+        button.disabled = status !== "Different" || !mode;
         button.addEventListener("click", async () => {
             const direction = mode === "soc"
                 ? "External Host → Creator 5"
